@@ -1,0 +1,10 @@
+desc:Spider Router Hub
+// This script distributes input 1/2 to channels 3-8
+@init
+ext_nchan = 8; // Tell REAPER to enable 8 channels
+
+@sample
+// Mirror input 1/2 to all other pairs
+spl2 = spl0; spl3 = spl1;
+spl4 = spl0; spl5 = spl1;
+spl6 = spl0; spl7 = spl1;
