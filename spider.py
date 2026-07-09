@@ -4,41 +4,30 @@ import json
 class SpiderApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Spider Patcher UI")
-        self.root.geometry("400x300")
-        self.root.configure(bg="#2b2b2b")
-
-        self.label = tk.Label(root, text="Spider Patcher System", 
-                              font=("Arial", 16, "bold"), fg="white", bg="#2b2b2b")
-        self.label.pack(pady=20)
-
-        # Updated: Link button to open_patcher function
-        self.btn_toggle = tk.Button(root, text="Toggle Spider Hub", 
-                                    width=20, height=2, bg="#4a4a4a", fg="white", 
-                                    command=self.open_patcher)
-        self.btn_toggle.pack(pady=10)
-
-        self.btn_export = tk.Button(root, text="Export .spdr Patch", 
-                                    width=20, height=2, bg="#007acc", fg="white", 
-                                    command=self.export_patch)
-        self.btn_export.pack(pady=10)
+        self.root.title("Spider Controller")
+        self.root.geometry("300x150")
+        self.btn = tk.Button(root, text="Open Patcher Canvas", command=self.open_patcher)
+        self.btn.pack(pady=50)
 
     def open_patcher(self):
-        # Create a new secondary window
-        patcher_win = tk.Toplevel(self.root)
-        patcher_win.title("Spider Patcher Canvas")
-        patcher_win.geometry("600x400")
-        patcher_win.configure(bg="#1e1e1e")
+        win = tk.Toplevel(self.root)
+        win.title("Spider Patcher Canvas")
         
-        # Add labels or drawing canvas here
-        tk.Label(patcher_win, text="Drag & Drop Nodes Here", 
-                 fg="white", bg="#1e1e1e").pack(pady=20)
+        # This is the Patcher Engine
+        canvas = tk.Canvas(win, width=600, height=400, bg="#1e1e1e")
+        canvas.pack()
 
-    def export_patch(self):
-        data = {"routing": "spider_hub_active"}
-        with open("my_patch.spdr", "w") as f:
-            json.dump(data, f)
-        print("Saved to my_patch.spdr")
+        # Draw a "Spider Node"
+        node = canvas.create_rectangle(50, 50, 150, 100, fill="#007acc", outline="white")
+        text = canvas.create_text(100, 75, text="Spider Hub", fill="white")
+
+        # Make the node draggable
+        def move_node(event):
+            canvas.coords(node, event.x-50, event.y-25, event.x+50, event.y+25)
+            canvas.coords(text, event.x, event.y)
+            
+        canvas.tag_bind(node, "<B1-Motion>", move_node)
+        canvas.tag_bind(text, "<B1-Motion>", move_node)
 
 if __name__ == "__main__":
     root = tk.Tk()
