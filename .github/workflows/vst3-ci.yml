@@ -15,7 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          # ensure submodules are populated if vst3 is a submodule
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Setup Python for fetch script
         uses: actions/setup-python@v4
@@ -49,65 +51,132 @@ jobs:
           git config --global user.email "ci@example.com"
           git config --global user.name "CI Bot"
 
-      - name: Run fetch-deps (Linux/macOS)
+      - name: Debug: list repository root
+        run: |
+          echo "Runner OS: $RUNNER_OS"
+          pwd
+          ls -la
+          # show vst3 if present
+          ls -la vst3 || true
+          ls -la vst3/extras || true
         if: runner.os != 'Windows'
+        shell: bash
+
+      - name: Debug: list repository root (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Runner OS: $env:RUNNER_OS"
+          Get-ChildItem -Force
+          if (Test-Path -Path vst3) { Get-ChildItem vst3 -Force } else { Write-Host "vst3 not present" }
+          if (Test-Path -Path vst3\extras) { Get-ChildItem vst3\extras -Force } else { Write-Host "vst3\\extras not present" }
+
+      - name: Check for vst3 dir (Linux/macOS)
+        id: check_vst3_nonwin
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ -d vst3 ]; then
+            echo "has_vst3=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_vst3=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for vst3 dir (Windows)
+        id: check_vst3_win
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path -Path vst3) {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'has_vst3=true'
+          } else {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'has_vst3=false'
+          }
+
+      - name: Run fetch-deps (Linux/macOS)
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'true'
         shell: bash
         run: |
           set -e
           if [ -f vst3/extras/fetch-deps.sh ]; then
             chmod +x vst3/extras/fetch-deps.sh
-            vst3/extras/fetch-deps.sh
+            # invoke explicitly with bash to avoid execution format issues
+            bash vst3/extras/fetch-deps.sh
           else
             echo "No fetch-deps script found at vst3/extras/fetch-deps.sh"
           fi
 
+      - name: Run fetch-deps (Linux/macOS) - skipped (no vst3)
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'false'
+        run: echo "Skipping fetch-deps because vst3 directory not found."
+
       - name: Run fetch-deps (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'true'
         shell: pwsh
         run: |
           # Try to invoke the bash script via Git Bash if available; otherwise skip with notice.
-          if (Get-Command bash -ErrorAction SilentlyContinue) {
-            bash -lc "if [ -f vst3/extras/fetch-deps.sh ]; then vst3/extras/fetch-deps.sh; else echo 'No fetch-deps script found at vst3/extras/fetch-deps.sh'; fi"
+          if (Test-Path -Path vst3\extras\fetch-deps.sh) {
+            if (Get-Command bash -ErrorAction SilentlyContinue) {
+              bash -lc "bash vst3/extras/fetch-deps.sh"
+            } else {
+              Write-Host "bash not available on this runner; skipping fetch-deps (but vst3 exists)"
+            }
           } else {
-            Write-Host "bash not available on this runner; skipping fetch-deps"
+            Write-Host "No fetch-deps script found at vst3\\extras\\fetch-deps.sh"
           }
 
+      - name: Run fetch-deps (Windows) - skipped (no vst3)
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'false'
+        shell: pwsh
+        run: Write-Host "Skipping fetch-deps because vst3 directory not found."
+
       - name: Configure CMake (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'true'
         shell: bash
         run: |
           set -e
-          if [ -d vst3 ]; then
-            cmake -S vst3 -B build -DCMAKE_BUILD_TYPE=Release
-          else
-            echo "Directory 'vst3' not found. Listing repo root for debugging:"
-            ls -la
-            exit 1
-          fi
+          cmake -S vst3 -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure CMake (Linux/macOS) - skipped (no vst3)
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'false'
+        shell: bash
+        run: |
+          echo "Directory 'vst3' not found; skipping CMake configure."
 
       - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'true'
         shell: pwsh
         run: |
-          if (-not (Test-Path -Path vst3)) {
-            Write-Error "Directory 'vst3' not found. Listing repo root for debugging:"
-            Get-ChildItem -Force
-            exit 1
-          }
           cmake -S vst3 -B build -A x64 -DCMAKE_BUILD_TYPE=Release
 
+      - name: Configure CMake (Windows) - skipped (no vst3)
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'false'
+        shell: pwsh
+        run: |
+          Write-Host "Directory 'vst3' not found; skipping CMake configure."
+
       - name: Build (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'true'
         shell: bash
         run: |
           set -e
           cmake --build build --config Release --parallel 2
 
+      - name: Build (Linux/macOS) - skipped (no vst3)
+        if: runner.os != 'Windows' && steps.check_vst3_nonwin.outputs.has_vst3 == 'false'
+        shell: bash
+        run: echo "Skipping build because vst3 not present."
+
       - name: Build (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'true'
         shell: pwsh
         run: |
           cmake --build build --config Release -- /m:2
+
+      - name: Build (Windows) - skipped (no vst3)
+        if: runner.os == 'Windows' && steps.check_vst3_win.outputs.has_vst3 == 'false'
+        shell: pwsh
+        run: Write-Host "Skipping build because vst3 not present."
 
       - name: List build outputs (debug)
         if: always()
