@@ -10,6 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +31,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
+          brew update
           brew install cmake
 
       - name: Setup MSVC (Windows)
@@ -41,24 +43,49 @@ jobs:
           git config --global user.email "ci@example.com"
           git config --global user.name "CI Bot"
 
-      - name: Run fetch-deps
+      - name: Run fetch-deps (Linux/macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           chmod +x vst3/extras/fetch-deps.sh
           vst3/extras/fetch-deps.sh
 
-      - name: Configure CMake
+      - name: Run fetch-deps (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # On Windows runner Git Bash is available; run the script without chmod.
+          vst3/extras/fetch-deps.sh
+
+      - name: Configure CMake (Linux/macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p build
           cd build
           cmake ../vst3
 
-      - name: Build
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -Path build)) { New-Item -ItemType Directory -Path build | Out-Null }
+          Set-Location build
+          cmake ..\vst3
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd build
           cmake --build . --config Release -j 2
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-Location build
+          cmake --build . --config Release -- /m:2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
