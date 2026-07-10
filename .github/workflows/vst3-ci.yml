@@ -1,0 +1,51 @@
+name: VST3-CI
+on:
+  push:
+    branches: [ vst3 ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Python for fetch script
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run fetch-deps
+        shell: bash
+        run: |
+          chmod +x vst3/extras/fetch-deps.sh
+          vst3/extras/fetch-deps.sh
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          cmake --build . --config Release -j 2
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spider-vst3-${{ matrix.os }}
+          path: |
+            build/**/*.vst3
+            build/**/*.dll
+            build/**/*.so
+            build/**/*.dylib
