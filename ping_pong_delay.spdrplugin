@@ -1,0 +1,12 @@
+{
+  "type": "Ping Pong Delay",
+  "author": "Example Audio Co.",
+  "description": "A stereo delay that bounces echoes left and right.",
+  "color": "#00ACC1",
+  "params": {
+    "Time (ms)": 300,
+    "Feedback (%)": 35,
+    "Stereo Width (%)": 80,
+    "Mix (%)": 25
+  }
+}

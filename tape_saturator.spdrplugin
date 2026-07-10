@@ -1,0 +1,11 @@
+{
+  "type": "Tape Saturator",
+  "author": "Example Audio Co.",
+  "description": "Warm analog-style tape saturation and gentle compression.",
+  "color": "#FB8C00",
+  "params": {
+    "Drive (%)": 40,
+    "Warmth (%)": 60,
+    "Output (dB)": 0.0
+  }
+}
