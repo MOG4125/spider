@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies (Ubuntu)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -33,6 +33,12 @@ jobs:
         run: |
           brew update
           brew install cmake
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 
       - name: Setup MSVC (Windows)
         if: runner.os == 'Windows'
@@ -47,45 +53,67 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          chmod +x vst3/extras/fetch-deps.sh
-          vst3/extras/fetch-deps.sh
+          set -e
+          if [ -f vst3/extras/fetch-deps.sh ]; then
+            chmod +x vst3/extras/fetch-deps.sh
+            vst3/extras/fetch-deps.sh
+          else
+            echo "No fetch-deps script found at vst3/extras/fetch-deps.sh"
+          fi
 
       - name: Run fetch-deps (Windows)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          # On Windows runner Git Bash is available; run the script without chmod.
-          vst3/extras/fetch-deps.sh
+          # Try to invoke the bash script via Git Bash if available; otherwise skip with notice.
+          if (Get-Command bash -ErrorAction SilentlyContinue) {
+            bash -lc "if [ -f vst3/extras/fetch-deps.sh ]; then vst3/extras/fetch-deps.sh; else echo 'No fetch-deps script found at vst3/extras/fetch-deps.sh'; fi"
+          } else {
+            Write-Host "bash not available on this runner; skipping fetch-deps"
+          }
 
       - name: Configure CMake (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p build
-          cd build
-          cmake ../vst3
+          set -e
+          if [ -d vst3 ]; then
+            cmake -S vst3 -B build -DCMAKE_BUILD_TYPE=Release
+          else
+            echo "Directory 'vst3' not found. Listing repo root for debugging:"
+            ls -la
+            exit 1
+          fi
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (-not (Test-Path -Path build)) { New-Item -ItemType Directory -Path build | Out-Null }
-          Set-Location build
-          cmake ..\vst3
+          if (-not (Test-Path -Path vst3)) {
+            Write-Error "Directory 'vst3' not found. Listing repo root for debugging:"
+            Get-ChildItem -Force
+            exit 1
+          }
+          cmake -S vst3 -B build -A x64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cd build
-          cmake --build . --config Release -j 2
+          set -e
+          cmake --build build --config Release --parallel 2
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Set-Location build
-          cmake --build . --config Release -- /m:2
+          cmake --build build --config Release -- /m:2
+
+      - name: List build outputs (debug)
+        if: always()
+        run: |
+          echo "Files in build (if any):"
+          ls -R build || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
