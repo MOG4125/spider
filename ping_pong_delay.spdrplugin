@@ -1,6 +1,6 @@
 {
   "type": "Ping Pong Delay",
-  "author": "Example Audio Co.",
+  "author": "MOG4125",
   "description": "A stereo delay that bounces echoes left and right.",
   "color": "#00ACC1",
   "params": {
