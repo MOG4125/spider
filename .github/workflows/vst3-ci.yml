@@ -21,6 +21,26 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Bot"
+
       - name: Run fetch-deps
         shell: bash
         run: |
@@ -32,7 +52,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake ..
+          cmake ../vst3
 
       - name: Build
         shell: bash
@@ -49,3 +69,4 @@ jobs:
             build/**/*.dll
             build/**/*.so
             build/**/*.dylib
+          if-no-files-found: warn
